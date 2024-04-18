@@ -2,6 +2,6 @@
 set(PostgreSQL_ADDITIONAL_VERSIONS "16")
 project ("projectWithSql")
 add_subdirectory("D:/Program Files/libpqxx-7.9.0" libpqxx-build)
-add_executable (projectWithSql "projectWithSql.cpp" "projectWithSql.h")
+add_executable (projectWithSql "projectWithSql.cpp")
 target_compile_features(projectWithSql PRIVATE cxx_std_17)
 target_link_libraries(projectWithSql pqxx)

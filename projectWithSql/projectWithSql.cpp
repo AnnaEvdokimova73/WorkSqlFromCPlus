@@ -4,6 +4,167 @@
 
 #pragma execution_character_set("utf-8")
 
+class DataBaseManager {
+public:
+	DataBaseManager() : conn("host=localhost "
+							 "port=5432 "
+							 "dbname=clientsdb "
+							 "user=postgres "
+							 "password=123")
+	{}
+
+	void createDbStructure()
+	{
+		pqxx::transaction tr{ conn };
+		tr.exec("Drop table phone;");
+		tr.exec("Drop table client;");
+
+		// Create tables
+		tr.exec("Create table if not exists client ("
+			    " client_id serial primary key,"
+			    " client_name varchar(250) not null,"
+			    " client_surname varchar(250) not null,"
+			    " client_email varchar(250) not null"
+			    " ); ");
+
+		tr.exec("Create table if not exists phone ("
+			    " phone_id serial primary key,"
+			    " phone_client_id int references client(client_id),"
+			    " phone_number varchar(250) unique"
+			    " ); ");
+		tr.commit();
+	}
+
+	int addNewClient(const std::string name, const std::string surname, const std::string email)
+	{
+		pqxx::transaction tr{ conn };
+
+		std::string execText = "Insert into client (client_name, client_surname, client_email)"
+			" Values('" + name + "', '" + surname + "', '" + email + "');";
+		tr.exec(execText);
+		execText = "Select client_id from client where client_name='" + name + "';";
+		int id = tr.query_value<int>(execText);
+
+		tr.commit();
+
+		return id;
+	}
+
+	int addPhone(const int clientId, const std::string phone)
+	{
+		pqxx::transaction tr{ conn };
+
+		std::string execText = "Insert into phone (phone_client_id, phone_number)"
+			" Values(" + std::to_string(clientId) + ", '" + phone + "'); ";
+		tr.exec(execText);
+		execText = "Select phone_id from phone where phone_number='" + phone + "';";
+		int id = tr.query_value<int>(execText);
+
+		tr.commit();
+		return id;
+	}
+
+	void updateClientSurname(const int clientId, const std::string surname)
+	{
+		pqxx::transaction tr{ conn };
+
+		std::string execText = "Update client"
+			" set client_surname = '" + surname + "'"
+			" where client_id =" + std::to_string(clientId)  + "; ";
+		tr.exec(execText);
+
+		tr.commit();
+	}
+
+	void updateClientEmail(const int clientId, const std::string email)
+	{
+		pqxx::transaction tr{ conn };
+
+		std::string execText = "Update client"
+			" set client_email = '" + email + "'"
+			" where client_id =" + std::to_string(clientId) + "; ";
+		tr.exec(execText);
+
+		tr.commit();
+	}
+
+	void deletePhone(const int clientId, const int phoneId)
+	{
+		pqxx::transaction tr{ conn };
+
+		std::string execText = "Delete from phone where phone_client_id=" + std::to_string(clientId) + " AND phone_id=" + std::to_string(phoneId);
+		tr.exec(execText);
+
+		tr.commit();
+	}
+
+	void deleteClient(const int clientId)
+	{
+		pqxx::transaction tr{ conn };
+
+		std::string execText = "Delete from phone where phone_client_id=" + std::to_string(clientId) + "; ";
+		tr.exec(execText);
+		execText = "Delete from client where client_id=" + std::to_string(clientId) + "; ";
+		tr.exec(execText);
+
+		tr.commit();
+	}
+
+	std::tuple<std::string, std::string, std::string> getClientByName(const std::string name)
+	{
+		pqxx::transaction tr{ conn };
+
+		std::string execText = "Select client_name, client_surname, client_email from client where client_name='" + name + "'";
+		auto clientData = tr.query<std::string, std::string, std::string>(execText);
+
+		std::tuple<std::string, std::string, std::string> clientTuple;
+		for (auto [name, surname, email] : clientData)
+		{
+			clientTuple = std::make_tuple(name, surname, email);
+		}
+
+		tr.commit();
+		return clientTuple;
+	}
+
+	std::tuple<std::string, std::string, std::string> getClientBySurname(const std::string surname)
+	{
+		pqxx::transaction tr{ conn };
+
+		std::string execText = "Select client_name, client_surname, client_email from client where client_surname='" + surname + "'";
+		auto clientData = tr.query<std::string, std::string, std::string>(execText);
+
+		std::tuple<std::string, std::string, std::string> clientTuple;
+		for (auto [name, surname, email] : clientData)
+		{
+			clientTuple = std::make_tuple(name, surname, email);
+		}
+
+		tr.commit();
+		return clientTuple;
+	}
+
+	std::tuple<std::string, std::string, std::string> getClientByEmail(const std::string email)
+	{
+		pqxx::transaction tr{ conn };
+
+		std::string execText = "Select client_name, client_surname, client_email from client where client_email='" + email + "'";
+		auto clientData = tr.query<std::string, std::string, std::string>(execText);
+
+		std::tuple<std::string, std::string, std::string> clientTuple;
+		for (auto [name, surname, email] : clientData)
+		{
+			clientTuple = std::make_tuple(name, surname, email);
+		}
+
+		tr.commit();
+		return clientTuple;
+	}
+
+private:
+	pqxx::connection conn;
+};
+
 int main()
 {
 	setlocale(LC_ALL, "Russian");
@@ -14,82 +175,44 @@ int main()
 
 	try
 	{
-		pqxx::connection conn(
-			"host=localhost "
-			"port=5432 "
-			"dbname=clientsdb "
-			"user=postgres "
-			"password=123");
+		DataBaseManager dbManager;
+		int clientId, phoneId;
 
-		pqxx::transaction tr{ conn };
-		tr.exec("Drop table phone;");
-		tr.exec("Drop table client;");
+		dbManager.createDbStructure();
 
-		// Create tables
-		tr.exec("Create table if not exists client ("
-			" client_id serial primary key,"
-			" client_name varchar(250) not null,"
-			" client_surname varchar(250) not null,"
-			" client_email varchar(250) not null"
-			" ); ");
+		clientId = dbManager.addNewClient("Anna", "Evdokimova", "anna@mail.ru");
+		dbManager.addPhone(clientId, "79008007060");
+		dbManager.addPhone(clientId, "79998887766");
 
-		tr.exec("Create table if not exists phone ("
-			" phone_id serial primary key,"
-			" phone_client_id int references client(client_id),"
-			" phone_number varchar(250) unique"
-			" ); ");
+		clientId = dbManager.addNewClient("Ivan", "Ivanov", "ivan@mail.ru");
+		dbManager.addPhone(clientId, "79000000000");
+		dbManager.addPhone(clientId, "79999999999");
+		dbManager.addPhone(clientId, "78888888888");
 
-		// Insert data into tables
-		tr.exec("Insert into client (client_name, client_surname, client_email)"
-			" Values('Anna', 'Evdokimova', 'anna@mail.ru');");
-		int id = tr.query_value<int>("Select client_id from client where client_name='Anna';");
-		std::string execText = "Insert into phone (phone_client_id, phone_number) Values(" + std::to_string(id) + ", '79008007060'); ";
-		tr.exec(execText);
-		execText = "Insert into phone (phone_client_id, phone_number) Values(" + std::to_string(id) + ", '78005553535'); ";
-		tr.exec(execText);
+		clientId = dbManager.addNewClient("Mark", "Sweet", "sweet@google.com");
+		dbManager.addPhone(clientId, "35999567390");
+		phoneId = dbManager.addPhone(clientId, "36789028827");
 
-		tr.exec("Insert into client (client_name, client_surname, client_email)"
-			" Values('Ivan', 'Ivanov', 'ivan@mail.ru');");
-		id = tr.query_value<int>("Select client_id from client where client_surname='Ivanov';");
-		execText = "Insert into phone (phone_client_id, phone_number) Values(" + std::to_string(id) + ", '79009009090'); ";
-		tr.exec(execText);
-		execText = "Insert into phone (phone_client_id, phone_number) Values(" + std::to_string(id) + ", '79999999999'); ";
-		tr.exec(execText);
+		dbManager.deletePhone(clientId, phoneId); // Удаляем второй номер Марка
 
-		tr.exec("Insert into client (client_name, client_surname, client_email)"
-			" Values('Mark', 'Sweet', 'mark@gmail.com');");
-		id = tr.query_value<int>("Select client_id from client where client_email='mark@gmail.com';");
-		execText = "Insert into phone (phone_client_id, phone_number) Values(" + std::to_string(id) + ", '7777777777'); ";
-		tr.exec(execText);
-		execText = "Insert into phone (phone_client_id, phone_number) Values(" + std::to_string(id) + ", '88008008080'); ";
-		tr.exec(execText);
+		dbManager.deleteClient(2); // Удаляем Ивана
 
-		// Delete all client's phones
-		//execText = "Delete from phone where phone_client_id=" + std::to_string(id);
-		//tr.exec(execText);
+		clientId = dbManager.addNewClient("Gali", "Letova", "gali@mail.ru");
+		dbManager.addPhone(clientId, "567390289028");
+		dbManager.addPhone(clientId, "345678928920");
+		dbManager.addPhone(clientId, "274904874029");
 
-		// Delete 1 client's phone
-		execText = "Delete from phone where phone_client_id=" + std::to_string(2) + " AND phone_id=2";
-		tr.exec(execText);
+		dbManager.updateClientSurname(clientId, "Sweet");
+		dbManager.updateClientEmail(clientId, "gali@google.com");
 
-		// Updata client data
-		tr.exec("Update client"
-			" set client_surname = 'Petrova', client_email = 'petrova@mail.ru'"
-			" where client_id = 1;");
+		auto [name, surname, email] = dbManager.getClientByName("Mark");
+		std::cout << "Found client1: " << name << " " << surname << " with email " << email << std::endl;
 
-		// Delete client
-		tr.exec("Delete from phone where phone_client_id=1;");
-		tr.exec("Delete from client where client_id=1;");
+		auto [name2, surname2, email2] = dbManager.getClientBySurname("Evdokimova");
+		std::cout << "Found client2: " << name2 << " " << surname2 << " with email " << email2 << std::endl;
 
-		//tr.commit();
-
-		auto clientData = tr.query<std::string, std::string, std::string>("Select client_name, client_surname, client_email from client where client_name='Mark'");
-
-		for (auto [name, surname, email] : clientData)
-		{
-			std::cout << "Found client: " << name << " " << surname << " with email " << email << std::endl;
-		}
-		tr.commit();
+		auto [name3, surname3, email3] = dbManager.getClientByEmail("gali@google.com");
+		std::cout << "Found client3: " << name3 << " " << surname3 << " with email " << email3 << std::endl;
 	}
 	catch (pqxx::sql_error& err)
 	{
