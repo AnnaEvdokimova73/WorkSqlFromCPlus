@@ -16,6 +16,10 @@ public:
 	void createDbStructure()
 	{
 		pqxx::transaction tr{ conn };
+		// Prepared statements
+		conn.prepare("update_surname", "Update client set client_surname = $1 where client_id = $2;");
+		conn.prepare("update_email", "Update client set client_email = $1 where client_id = $2;");
+
 		tr.exec("Drop table phone;");
 		tr.exec("Drop table client;");
 
@@ -40,9 +44,9 @@ public:
 		pqxx::transaction tr{ conn };
 
 		std::string execText = "Insert into client (client_name, client_surname, client_email)"
-			" Values('" + name + "', '" + surname + "', '" + email + "');";
+			" Values('" + tr.esc(name) + "', '" + tr.esc(surname) + "', '" + tr.esc(email) + "');";
 		tr.exec(execText);
-		execText = "Select client_id from client where client_name='" + name + "';";
+		execText = "Select client_id from client where client_name='" + tr.esc(name) + "';";
 		int id = tr.query_value<int>(execText);
 
 		tr.commit();
@@ -55,9 +59,9 @@ public:
 		pqxx::transaction tr{ conn };
 
 		std::string execText = "Insert into phone (phone_client_id, phone_number)"
-			" Values(" + std::to_string(clientId) + ", '" + phone + "'); ";
+			" Values(" + std::to_string(clientId) + ", '" + tr.esc(phone) + "'); ";
 		tr.exec(execText);
-		execText = "Select phone_id from phone where phone_number='" + phone + "';";
+		execText = "Select phone_id from phone where phone_number='" + tr.esc(phone) + "';";
 		int id = tr.query_value<int>(execText);
 
 		tr.commit();
@@ -68,10 +72,12 @@ public:
 	{
 		pqxx::transaction tr{ conn };
 
-		std::string execText = "Update client"
+		/*std::string execText = "Update client"
 			" set client_surname = '" + surname + "'"
 			" where client_id =" + std::to_string(clientId)  + "; ";
-		tr.exec(execText);
+		tr.exec(execText);*/
+
+		tr.exec_prepared("update_surname", surname, std::to_string(clientId));
 
 		tr.commit();
 	}
@@ -80,10 +86,12 @@ public:
 	{
 		pqxx::transaction tr{ conn };
 
-		std::string execText = "Update client"
+		/*std::string execText = "Update client"
 			" set client_email = '" + email + "'"
 			" where client_id =" + std::to_string(clientId) + "; ";
-		tr.exec(execText);
+		tr.exec(execText);*/
+
+		tr.exec_prepared("update_email", email, std::to_string(clientId));
 
 		tr.commit();
 	}
@@ -114,7 +122,7 @@ public:
 	{
 		pqxx::transaction tr{ conn };
 
-		std::string execText = "Select client_name, client_surname, client_email from client where client_name='" + name + "'";
+		std::string execText = "Select client_name, client_surname, client_email from client where client_name='" + tr.esc(name) + "'";
 		auto clientData = tr.query<std::string, std::string, std::string>(execText);
 
 		std::tuple<std::string, std::string, std::string> clientTuple;
@@ -131,7 +139,7 @@ public:
 	{
 		pqxx::transaction tr{ conn };
 
-		std::string execText = "Select client_name, client_surname, client_email from client where client_surname='" + surname + "'";
+		std::string execText = "Select client_name, client_surname, client_email from client where client_surname='" + tr.esc(surname) + "'";
 		auto clientData = tr.query<std::string, std::string, std::string>(execText);
 
 		std::tuple<std::string, std::string, std::string> clientTuple;
@@ -148,7 +156,7 @@ public:
 	{
 		pqxx::transaction tr{ conn };
 
-		std::string execText = "Select client_name, client_surname, client_email from client where client_email='" + email + "'";
+		std::string execText = "Select client_name, client_surname, client_email from client where client_email='" + tr.esc(email) + "'";
 		auto clientData = tr.query<std::string, std::string, std::string>(execText);
 
 		std::tuple<std::string, std::string, std::string> clientTuple;
